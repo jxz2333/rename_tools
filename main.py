@@ -1,122 +1,134 @@
 import os
 import tkinter as tk
-from tkinter import filedialog
-from tkinter import Scrollbar
+from tkinter import filedialog, messagebox, ttk
 
-class BatchRenameApp:
-    def __init__(self, master):
-        self.master = master
-        master.title("批量重命名工具")
+class FileSorterRenamer(tk.Tk):
+    def __init__(self):
+        super().__init__()
 
-        # 初始化文件列表
-        self.file_list = []
+        self.title('File Sorter and Renamer')
+        self.geometry('600x450')
 
-        # 创建控件
-        self.label = tk.Label(master, text="选择文件夹:")
-        self.label.pack()
+        self.create_widgets()
 
-        self.browse_button = tk.Button(master, text="浏览", command=self.browse_folder)
-        self.browse_button.pack()
+    def create_widgets(self):
+        # Directory Frame
+        self.dir_frame = ttk.Frame(self)
+        self.dir_frame.pack(pady=20)
 
-        self.listbox = tk.Listbox(master, selectmode=tk.MULTIPLE, width=40, height=10)
-        self.listbox.pack(side=tk.LEFT, fill=tk.Y)
+        self.dir_label = ttk.Label(self.dir_frame, text='Select Directory:')
+        self.dir_label.pack(side='left', padx=(0, 10))
 
-        self.scrollbar = Scrollbar(master, orient=tk.VERTICAL)
-        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.scrollbar.config(command=self.listbox.yview)
+        self.dir_entry = ttk.Entry(self.dir_frame, width=50)
+        self.dir_entry.pack(side='left')
+
+        self.dir_button = ttk.Button(self.dir_frame, text='Browse', command=self.browse_directory)
+        self.dir_button.pack(side='left')
+
+        # Listbox Frame
+        self.listbox_frame = ttk.Frame(self)
+        self.listbox_frame.pack()
+
+        self.listbox = tk.Listbox(self.listbox_frame, width=50, height=15, selectmode='extended')
+        self.listbox.pack(side='left', padx=(0, 10))
+
+        self.scrollbar = ttk.Scrollbar(self.listbox_frame, orient='vertical', command=self.listbox.yview)
+        self.scrollbar.pack(side='left', fill='y')
 
         self.listbox.config(yscrollcommand=self.scrollbar.set)
 
-        self.sort_button = tk.Button(master, text="排序文件", command=self.sort_files)
-        self.sort_button.pack()
+        # Sort Buttons Frame
+        self.sort_buttons_frame = ttk.Frame(self)
+        self.sort_buttons_frame.pack(pady=10)
 
-        self.prefix_label = tk.Label(master, text="前缀:")
-        self.prefix_label.pack()
-        self.prefix_entry = tk.Entry(master)
-        self.prefix_entry.pack()
+        self.up_button = ttk.Button(self.sort_buttons_frame, text='Move Up', command=self.move_up)
+        self.up_button.pack(side='left', padx=(0, 10))
 
-        self.suffix_label = tk.Label(master, text="后缀:")
-        self.suffix_label.pack()
-        self.suffix_entry = tk.Entry(master)
-        self.suffix_entry.pack()
+        self.down_button = ttk.Button(self.sort_buttons_frame, text='Move Down', command=self.move_down)
+        self.down_button.pack(side='left')
 
-        self.rename_button = tk.Button(master, text="批量重命名", command=self.batch_rename)
-        self.rename_button.pack()
+        # Rename Frame
+        self.rename_frame = ttk.Frame(self)
+        self.rename_frame.pack(pady=20)
 
-        self.quit_button = tk.Button(master, text="退出", command=master.quit)
-        self.quit_button.pack()
+        self.prefix_label = ttk.Label(self.rename_frame, text='Prefix:')
+        self.prefix_label.grid(row=0, column=0, sticky='e')
 
-        # 绑定拖放事件
-        self.listbox.bind('<Button-1>', self.on_click)
-        self.listbox.bind('<B1-Motion>', self.on_drag)
+        self.prefix_entry = ttk.Entry(self.rename_frame)
+        self.prefix_entry.grid(row=0, column=1)
 
-    def browse_folder(self):
-        folder_selected = filedialog.askdirectory()
-        if folder_selected:
-            self.file_list = [os.path.join(folder_selected, file) for file in os.listdir(folder_selected) if os.path.isfile(os.path.join(folder_selected, file))]
-            print("选择的文件夹:", folder_selected)
-            self.update_listbox()
+        self.suffix_label = ttk.Label(self.rename_frame, text='Suffix:')
+        self.suffix_label.grid(row=1, column=0, sticky='e')
 
-    def update_listbox(self):
+        self.suffix_entry = ttk.Entry(self.rename_frame)
+        self.suffix_entry.grid(row=1, column=1)
+
+        self.startnum_label = ttk.Label(self.rename_frame, text='Start Number:')
+        self.startnum_label.grid(row=2, column=0, sticky='e')
+
+        self.startnum_entry = ttk.Entry(self.rename_frame)
+        self.startnum_entry.grid(row=2, column=1)
+
+        self.rename_button = ttk.Button(self.rename_frame, text='Rename Files', command=self.rename_files)
+        self.rename_button.grid(row=3, column=0, columnspan=2)
+
+    def browse_directory(self):
+        directory = filedialog.askdirectory()
+        if directory:
+            self.dir_entry.delete(0, tk.END)
+            self.dir_entry.insert(0, directory)
+            self.populate_listbox(directory)
+
+    def populate_listbox(self, directory):
         self.listbox.delete(0, tk.END)
-        for file_path in self.file_list:
-            self.listbox.insert(tk.END, os.path.basename(file_path))
+        try:
+            for filename in sorted(os.listdir(directory), key=str.lower):
+                self.listbox.insert(tk.END, filename)
+        except FileNotFoundError:
+            messagebox.showerror('Error', 'Directory not found.')
 
-    def sort_files(self):
-        self.file_list.sort()
-        self.update_listbox()
+    def move_up(self):
+        selected_indices = self.listbox.curselection()
+        for i in selected_indices:
+            if i > 0:
+                self.listbox.insert(i - 1, self.listbox.get(i))
+                self.listbox.delete(i + 1)
+                self.listbox.selection_set(i - 1)
 
-    def on_click(self, event):
-        # 获取被点击的文件项
-        selected_index = self.listbox.nearest(event.y)
-        self.drag_data = {'x': event.x, 'y': event.y, 'index': selected_index}
+    def move_down(self):
+        selected_indices = self.listbox.curselection()
+        for i in reversed(selected_indices):
+            if i < self.listbox.size() - 1:
+                self.listbox.insert(i + 2, self.listbox.get(i))
+                self.listbox.delete(i)
+                self.listbox.selection_set(i + 1)
 
-    def on_drag(self, event):
-        # 拖动文件项
-        x, y, index = event.x, event.y, self.listbox.nearest(event.y)
-        self.listbox.yview_scroll(int((self.drag_data['y'] - y) / 15), tk.UNITS)  # 滚动
-        self.listbox.after(100, lambda: self.listbox.yview(tk.MOVETO, int((self.drag_data['y'] - y) / 15)))  # 解决滚动卡顿的问题
-        self.listbox.yview(tk.SCROLL, int((self.drag_data['y'] - y) / 15), tk.UNITS)  # 更新视图
-        self.listbox.delete(self.drag_data['index'])  # 删除之前的位置
-        self.listbox.insert(index, os.path.basename(self.file_list[self.drag_data['index']]))  # 插入新的位置
-        # 更新文件列表的顺序
-        self.file_list.insert(index, self.file_list.pop(self.drag_data['index']))
-
-    def batch_rename(self):
-        if not self.file_list:
-            print("请先选择文件夹.")
-            return
-
+    def rename_files(self):
+        directory = self.dir_entry.get()
         prefix = self.prefix_entry.get()
         suffix = self.suffix_entry.get()
+        try:
+            start_num = int(self.startnum_entry.get())
+        except ValueError:
+            messagebox.showerror('Error', 'Start Number must be an integer.')
+            return
 
-        for index, file_path in enumerate(self.file_list, 1):
-            file_name, file_extension = os.path.splitext(os.path.basename(file_path))
-            new_name = f"{prefix}{str(index).zfill(2)}{suffix}{file_extension}"
-            new_path = os.path.join(os.path.dirname(file_path), new_name)
-            os.rename(file_path, new_path)
+        for i in range(self.listbox.size()):
+            old_name = self.listbox.get(i)
+            name, ext = os.path.splitext(old_name)
+            new_name = f"{prefix}{start_num + i:02d}{suffix}{ext}"
 
-        print("批量重命名完成.")
-        self.file_list = []  # 清空文件列表
-        self.update_listbox()
+            try:
+                os.rename(os.path.join(directory, old_name), os.path.join(directory, new_name))
+                self.listbox.delete(i)
+                self.listbox.insert(i, new_name)
+            except FileNotFoundError:
+                messagebox.showerror('Error', f'File not found: {old_name}')
+            except FileExistsError:
+                messagebox.showerror('Error', f'File already exists: {new_name}')
 
-# 创建主窗口
-root = tk.Tk()
-app = BatchRenameApp(root)
+        messagebox.showinfo('Success', 'Files have been renamed.')
 
-# 获取屏幕宽度和高度
-screen_width = root.winfo_screenwidth()
-screen_height = root.winfo_screenheight()
-
-# 设置窗口大小为屏幕的一半
-window_width = int(screen_width / 2)
-window_height = int(screen_height / 2)
-
-# 计算窗口左上角坐标使其居中
-x_position = int((screen_width - window_width) / 2)
-y_position = int((screen_height - window_height) / 2)
-
-root.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
-
-# 运行主循环
-root.mainloop()
+if __name__ == "__main__":
+    app = FileSorterRenamer()
+    app.mainloop()
